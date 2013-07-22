@@ -44,6 +44,9 @@
 /** The streaming URI to the container */
 @property (nonatomic, strong) NSURL *cdn_streaming_uri;
 
+/** The iOS URI to the container */
+@property (nonatomic, strong) NSURL *cdn_ios_uri;
+
 /** Optional metadata associated with the container.  Keys and values for the metadata
  *  are strings.
  */
