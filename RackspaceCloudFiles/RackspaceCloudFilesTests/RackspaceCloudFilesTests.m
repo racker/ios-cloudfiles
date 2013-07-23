@@ -224,33 +224,6 @@
     
 }
 
-- (void)testPurgeCDNContainer {
-    
-    [self cdnEnableContainer:^(RSCDNContainer *cdnContainer) {
-        
-        [self.client purgeCDNContainer:cdnContainer success:^{
-            
-            [self stopWaiting];
-            
-        } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
-            [self stopWaiting];
-            
-            NSDictionary *headers = [response allHeaderFields];
-            
-            // you can only purge once every 3600 seconds, so if you get a
-            // X-Purge-Failed-Reason header, that's an acceptable failure
-            if (![headers valueForKey:@"X-Purge-Failed-Reason"]) {
-                
-                STFail(@"Purge CDN container failed. Response code: %i - %@", [response statusCode], [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);  
-                
-            }
-            
-        }];
-        
-    }];
-    
-}
-
 - (void)testUpdateCDNContainer {
     
     [self cdnEnableContainer:^(RSCDNContainer *cdnContainer) {

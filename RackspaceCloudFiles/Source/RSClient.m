@@ -484,31 +484,4 @@
 
 }
 
-#pragma mark Purge CDN Container (5.2.3)
-
-- (NSURLRequest *)purgeCDNContainerRequest:(RSCDNContainer *)container {
-    
-    return [self cdnRequest:$S(@"/%@", container.name) httpMethod:@"DELETE"];
-    
-}
-
-- (NSURLRequest *)purgeCDNContainerRequest:(RSCDNContainer *)container emailAddresses:(NSArray *)emailAddresses {
-    
-    NSMutableURLRequest *request = [self cdnRequest:$S(@"/%@", container.name) httpMethod:@"DELETE"];
-    [request addValue:[emailAddresses componentsJoinedByString:@", "] forHTTPHeaderField:@"X-Purge-Email"];
-    return request;
-    
-}
-
-- (void)purgeCDNContainer:(RSCDNContainer *)container success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
-    
-    [self sendAsynchronousRequest:@selector(purgeCDNContainerRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
-        if (successHandler) {
-            successHandler();        
-        }
-    } failureHandler:failureHandler];
-    
-}
-
-
 @end

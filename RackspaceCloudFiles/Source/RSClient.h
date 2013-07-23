@@ -260,26 +260,6 @@ typedef enum {
  */
 - (void)getCDNContainerMetadata:(RSCDNContainer *)container success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler;
 
-#pragma mark Purge CDN Container
-
-/** Returns a request object that represents a request to purge a container from the CDN
- *  @param container The container to purge
- */
-- (NSURLRequest *)purgeCDNContainerRequest:(RSCDNContainer *)container;
-
-/** Returns a request object that represents a request to purge a container from the CDN
- *  @param container The container to purge
- *  @param emailAddresses An array of NSString objects representing email addresses to notify when the container is purged
- */
-- (NSURLRequest *)purgeCDNContainerRequest:(RSCDNContainer *)container emailAddresses:(NSArray *)emailAddresses;
-
-/** Purges a CDN container from the CDN.
- *  @param container The container to purge
- *  @param successHandler Executes if successful
- *  @param failureHandler Executes if not successful
- */
-- (void)purgeCDNContainer:(RSCDNContainer *)container success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler;
-
 #pragma mark Update CDN Container
 
 /** Returns a request object that represents a request to update a container.
