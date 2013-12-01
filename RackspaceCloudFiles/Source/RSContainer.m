@@ -15,6 +15,7 @@
 @implementation RSContainer
 
 @synthesize bytes, count, name, metadata;
+@synthesize publicURL;
 
 - (id)init {
     self = [super init];
@@ -27,9 +28,13 @@
 #pragma mark - Get Objects
 
 - (NSURLRequest *)getObjectsRequest {
-    
-    return [self.client storageRequest:$S(@"/%@?format=json", self.name)];
-    
+    NSURL *url = [NSURL URLWithString:$S(@"%@/%@?format=json", self.publicURL, self.name)];
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
+    [request setHTTPMethod:@"GET"];
+    [request addValue:self.client.authToken forHTTPHeaderField:@"X-Auth-Token"];
+    [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    NSLog(self.client.authToken);
+    return request;
 }
 
 //limit: For an integer value n, limits the number of results to at most n values. marker Given a string value x, return object names greater in value than the specified marker.
@@ -37,7 +42,7 @@
 //path: For a string value x, return the object names nested in the pseudo path (assuming preconditions are met - see below).
 //delimiter: For a character c, return all the object names nested in the container (without the need for the directory marker objects).
 - (NSURLRequest *)getObjectsRequest:(NSDictionary *)params {
-
+   
     NSMutableString *paramString = [[NSMutableString alloc] initWithString:@"?format=json"];
     
     for (NSString *key in params) {
@@ -46,19 +51,31 @@
         
     }
     
-    NSMutableURLRequest *request = [self.client storageRequest:$S(@"/%@%@", self.name, paramString)];
+    
+    NSMutableURLRequest *request = [self.client storageRequest:$S(@"%@/%@", self.name, paramString)];
+ 
     return request;
 }
 
 - (void)getObjects:(void (^)(NSArray *objects, NSError *jsonError))successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
-    
     [self.client sendAsynchronousRequest:@selector(getObjectsRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         
         NSError *jsonError = nil;
-        NSArray *dictionaries = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:&jsonError];
+        NSArray* dictionaries = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:&jsonError];
+        NSMutableArray* myarray = [[NSMutableArray alloc] init];
         
+        
+        NSLog(@"getObjects happened %lu", [dictionaries count]);
+        for(NSDictionary* d in dictionaries)
+        {
+            NSMutableDictionary* temp = [NSMutableDictionary dictionaryWithDictionary:d];
+            [temp setValue:self.publicURL forKey:@"publicURL"];
+            NSDictionary* newelement = [NSDictionary dictionaryWithDictionary:temp];
+            [myarray addObject:newelement];
+        }
+
         if (successHandler) {
-            successHandler([RSStorageObject arrayFromJSONDictionaries:dictionaries parent:self], jsonError);
+            successHandler([RSStorageObject arrayFromJSONDictionaries:myarray parent:self], jsonError);
         }
         
     } failureHandler:failureHandler];
@@ -72,7 +89,7 @@
     for (NSString *key in object.metadata) {
         [request addValue:[object.metadata valueForKey:key] forHTTPHeaderField:$S(@"X-Object-Meta-%@", key)];
     }
-    [request addValue:$S(@"%i", [object.data length]) forHTTPHeaderField:@"Content-Length"];
+    [request addValue:$S(@"%lu", (unsigned long)[object.data length]) forHTTPHeaderField:@"Content-Length"];
     [request addValue:object.content_type forHTTPHeaderField:@"Content-Type"];
     [request setHTTPBody:object.data];
         

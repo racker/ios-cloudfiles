@@ -14,6 +14,7 @@
 @implementation RSStorageObject
 
 @synthesize name, hash, bytes, content_type, last_modified, metadata, etag, data;
+@synthesize publicURL;
 
 - (id)init {
     self = [super init];
@@ -24,18 +25,23 @@
 }
 
 - (NSDate *)last_modified_date {
-    
 	NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
 	[dateFormatter setLocale:[[NSLocale alloc] initWithLocaleIdentifier:@"en_US_POSIX"]];
     [dateFormatter setDateFormat:@"yyyy-MM-dd'T'H:mm:ss.SSSSSS"];
 	return [dateFormatter dateFromString:self.last_modified];
-    
 }
 
 - (NSURLRequest *)getObjectDataRequest {
-
-    return [self.client storageRequest:$S(@"/%@/%@", [self.parent valueForKey:@"name"], self.name)];
+    NSURL *url = [NSURL URLWithString:$S(@"%@/%@?format=json", self.publicURL, self.name)];
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
+    [request setHTTPMethod:@"GET"];
+    [request addValue:self.client.authToken forHTTPHeaderField:@"X-Auth-Token"];
+    [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    NSLog(self.client.authToken);
     
+    return (NSURLRequest*)request;
+    
+//return [self.client storageRequest:$S(@"/%@/%@", [self.parent valueForKey:@"name"], self.name)];
 }
 
 - (void)getObjectData:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
@@ -49,8 +55,7 @@
             successHandler();
         }
         
-    } failureHandler:failureHandler];    
-    
+    } failureHandler:failureHandler];
 }
 
 - (void)writeObjectDataToFile:(NSString *)path atomically:(BOOL)atomically success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {

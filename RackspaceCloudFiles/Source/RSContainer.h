@@ -27,11 +27,13 @@
 
 /** The name of the container */
 @property (nonatomic, strong) NSString *name;
-
 /** Optional metadata associated with the container.  Keys and values for the metadata
  *  are strings.
  */
 @property (nonatomic, strong) NSMutableDictionary *metadata;
+
+/** going to need this endpoint for other commands **/
+@property (nonatomic, strong) NSString* publicURL;
 
 #pragma mark Get Objects
 

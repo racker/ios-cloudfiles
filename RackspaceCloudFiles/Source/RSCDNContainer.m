@@ -14,7 +14,7 @@
 
 @implementation RSCDNContainer
 
-@synthesize name, cdn_enabled, ttl, log_retention, cdn_uri, cdn_ssl_uri, cdn_streaming_uri, metadata;
+@synthesize name, cdn_enabled, ttl, log_retention, cdn_uri, cdn_ssl_uri, cdn_streaming_uri, metadata, publicURL;
 
 - (id)init {
     self = [super init];

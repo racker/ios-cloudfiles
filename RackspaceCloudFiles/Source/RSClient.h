@@ -48,6 +48,8 @@ typedef enum {
  */
 @property (nonatomic, strong) NSString *apiKey;
 
+@property (nonatomic, strong) NSString* tenant_id;
+
 /** The authentication URL for the API */
 @property (nonatomic, strong) NSURL *authURL;
 
@@ -62,6 +64,8 @@ typedef enum {
 
 /** Base URL string for the Cloud Files Storage API */
 @property (nonatomic, strong) NSString *storageURL;
+@property (nonatomic, strong) NSDictionary* cloudfiles_endpoints;
+@property (nonatomic, strong) NSDictionary* cloudfilescdn_endpoints;
 
 /** Base URL string for the Cloud Files CDN Management API */
 @property (nonatomic, strong) NSString *cdnManagementURL;
@@ -170,6 +174,10 @@ typedef enum {
  *  @param failureHandler Executes if not successful
  */
 - (void)getContainers:(void (^)(NSArray *containers, NSError *jsonError))successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler;
+
+- (void)getContainers_multiregion:(void(^)(NSMutableArray*, NSArray*))callback;
+- (void)getCDNContainers_multiregion:(void(^)(NSMutableArray*, NSArray*))callback;
+
 
 #pragma mark Create Container
 

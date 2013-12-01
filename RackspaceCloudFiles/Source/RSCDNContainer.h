@@ -47,6 +47,8 @@
 /** The iOS URI to the container */
 @property (nonatomic, strong) NSURL *cdn_ios_uri;
 
+@property (nonatomic, strong) NSURL* publicURL;
+
 /** Optional metadata associated with the container.  Keys and values for the metadata
  *  are strings.
  */

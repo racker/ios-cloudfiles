@@ -15,6 +15,8 @@
 
 @synthesize username, apiKey, authURL, authenticated, authToken, storageURL, cdnManagementURL;
 @synthesize containerCount, totalBytesUsed;
+@synthesize cloudfiles_endpoints, cloudfilescdn_endpoints;
+
 
 #pragma mark - Constructors
 
@@ -22,16 +24,11 @@
     
     self = [super init];
     if (self) {
-        if (provider == RSProviderTypeRackspaceUS) {
-            self.authURL = [NSURL URLWithString:@"https://auth.api.rackspacecloud.com/v1.0"];
-        } else if (provider == RSProviderTypeRackspaceUK) {
-            self.authURL = [NSURL URLWithString:@"https://lon.auth.api.rackspacecloud.com/v1.0"];
-        }
+        self.authURL = [NSURL URLWithString:@"https://identity.api.rackspacecloud.com/v2.0/tokens"];
         self.username = aUsername;
         self.apiKey = anApiKey;
     }
     return self;
-    
 }
 
 - (id)initWithAuthURL:(NSURL *)anAuthURL username:(NSString *)aUsername apiKey:(NSString *)anApiKey {
@@ -50,31 +47,119 @@
 #pragma mark - Common
 
 - (NSMutableURLRequest *)storageRequest:(NSString *)path httpMethod:(NSString *)httpMethod {
-    
-    NSURL *url = [NSURL URLWithString:$S(@"%@%@", self.storageURL, [path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding])];    
+    NSURL *url = [NSURL URLWithString:$S(@"%@%@", self.storageURL, [path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding])];
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
     [request setHTTPMethod:httpMethod];
     [request addValue:self.authToken forHTTPHeaderField:@"X-Auth-Token"];
     [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     return request;
-    
 }
+
+
+- (void)getContainers_multiregion:(void(^)(NSMutableArray*, NSArray*))callback {
+    NSURL* url;
+    NSMutableURLRequest* request;
+    NSMutableArray* request_array = [[NSMutableArray alloc] init];
+    __block NSMutableArray* containers = [[NSMutableArray alloc] init];
+    __block NSMutableArray* errors = [[NSMutableArray alloc] init];
+    
+    for(NSDictionary* endpoint in cloudfiles_endpoints) {
+        url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/?format=json",[endpoint valueForKey:@"publicURL"]]];
+        request = [[NSMutableURLRequest alloc] initWithURL:url];
+        [request setHTTPMethod:@"GET"];
+        [request addValue:self.authToken forHTTPHeaderField:@"X-Auth-Token"];
+        [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+        [request_array addObject:request];
+    }
+
+    dispatch_queue_t workqueue = dispatch_queue_create("getContainers", NULL);
+    dispatch_async(workqueue, ^{
+        __block NSData* data;
+        __block NSHTTPURLResponse* response;
+        __block NSError* error = nil;
+        for (NSMutableURLRequest* request in request_array)
+        {
+            error = nil;
+            data = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
+            if(error)
+            {
+                [errors addObject:error];
+                continue;
+            }
+            NSArray* myarray = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+            for(NSDictionary* e in myarray)
+            {
+                NSMutableDictionary* temp = [NSMutableDictionary dictionaryWithDictionary:e];
+                [temp setValue:[NSString stringWithFormat:@"%@://%@%@",[request.URL scheme],[request.URL host],[request.URL path]]
+                        forKey:@"publicURL"];
+                NSDictionary* newelement = [NSDictionary dictionaryWithDictionary:temp];
+               [containers addObject:newelement];
+            }
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{callback(errors, [RSContainer arrayFromJSONDictionaries:containers parent:self]);});
+    });
+}
+
+- (void)getCDNContainers_multiregion:(void(^)(NSMutableArray*, NSArray*))callback {
+    NSURL* url;
+    NSMutableURLRequest* request;
+    NSMutableArray* request_array = [[NSMutableArray alloc] init];
+    __block NSMutableArray* containers = [[NSMutableArray alloc] init];
+    __block NSMutableArray* errors = [[NSMutableArray alloc] init];
+    
+    for(NSDictionary* endpoint in cloudfilescdn_endpoints) {
+        url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/?format=json",[endpoint valueForKey:@"publicURL"]]];
+        request = [[NSMutableURLRequest alloc] initWithURL:url];
+        [request setHTTPMethod:@"GET"];
+        [request addValue:self.authToken forHTTPHeaderField:@"X-Auth-Token"];
+        [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+        [request_array addObject:request];
+    }
+    
+    dispatch_queue_t workqueue = dispatch_queue_create("getContainers", NULL);
+    dispatch_async(workqueue, ^{
+        __block NSData* data;
+        __block NSHTTPURLResponse* response;
+        __block NSError* error = nil;
+        
+        for (NSMutableURLRequest* request in request_array)
+        {
+            error = nil;
+            data = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
+            if(error)
+            {
+                [errors addObject:error];
+                continue;
+            }
+            NSArray* myarray = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+            for(NSDictionary* e in myarray)
+            {
+                NSMutableDictionary* temp = [NSMutableDictionary dictionaryWithDictionary:e];
+                [temp setValue:[NSString stringWithFormat:@"%@://%@%@",[request.URL scheme],[request.URL host],[request.URL path]]
+                        forKey:@"publicURL"];
+                NSDictionary* newelement = [NSDictionary dictionaryWithDictionary:temp];
+                [containers addObject:newelement];
+            }
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{callback(errors, [RSCDNContainer arrayFromJSONDictionaries:containers parent:self]);});
+    });
+}
+
+
 
 - (NSMutableURLRequest *)storageRequest:(NSString *)path {
     
     return [self storageRequest:path httpMethod:@"GET"];
-    
 }
 
+
 - (NSMutableURLRequest *)cdnRequest:(NSString *)path httpMethod:(NSString *)httpMethod {
-    
     NSURL *url = [NSURL URLWithString:$S(@"%@%@", self.cdnManagementURL, [path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding])];    
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
     [request setHTTPMethod:httpMethod];
     [request addValue:self.authToken forHTTPHeaderField:@"X-Auth-Token"];
     [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     return request;
-    
 }
 
 - (NSMutableURLRequest *)cdnRequest:(NSString *)path {
@@ -140,27 +225,48 @@
 #pragma mark - Authentication
 
 - (NSURLRequest *)authenticationRequest {
-
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:self.authURL];
-    [request addValue:self.username forHTTPHeaderField:@"X-Auth-User"];
-    [request addValue:self.apiKey forHTTPHeaderField:@"X-Auth-Key"];
-    return request;
+
+    NSString* postdata =  [NSString stringWithFormat:
+                             @"{ \"auth\":{ \"RAX-KSKEY:apiKeyCredentials\":{ \"username\":\"%@\", \"apiKey\":\"%@\" } } }",
+                         self.username,self.apiKey];
     
+   // NSData* data = [NSData dataWithBytes:postdata length:[postdata length]];
+    NSData* data = [NSData dataWithBytes:[postdata UTF8String] length:[postdata length]];
+    [request setHTTPMethod:@"POST"];
+    [request addValue:@"application/json" forHTTPHeaderField:@"Accept"];
+    [request addValue:@"application/json" forHTTPHeaderField:@"Content-type"];
+    [request addValue:[NSString stringWithFormat:@"%lu",(unsigned long)[data length]] forHTTPHeaderField:@"Content-Length"];
+    [request setHTTPBody:data];
+    return request;
 }
 
 - (void)authenticate:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
     NSURLRequest *request = [self authenticationRequest];
+    
     [NSURLConnection sendAsynchronousRequest:request queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse *urlResponse, NSData *data, NSError *error) {    
         
         NSHTTPURLResponse *response = (NSHTTPURLResponse *)urlResponse;
-        
+      
         if (response.statusCode >= 200 && response.statusCode <= 299) {            
         
-            NSDictionary *headers = [response allHeaderFields];
-            self.authToken = [headers objectForKey:@"X-Auth-Token"];
-            self.storageURL = [headers objectForKey:@"X-Storage-Url"];
-            self.cdnManagementURL = [headers objectForKey:@"X-Cdn-Management-Url"];
+            //NSDictionary* responseHeaders = [response allHeaderFields];
+            //NSString* responseBody = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+            NSDictionary* jsonResponse = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+            
+            self.authToken = [[[jsonResponse valueForKey:@"access"] valueForKey:@"token" ] valueForKey:@"id"];
+            self.tenant_id = [[[[jsonResponse valueForKey:@"access"] valueForKey:@"token" ] valueForKey:@"tenant"]
+                                valueForKey:@"id"];
+            
+            for(NSDictionary* d in [[jsonResponse valueForKey:@"access"] valueForKey:@"serviceCatalog"])
+            {
+                if([d[@"name"]  isEqual: @"cloudFiles"] )
+                    cloudfiles_endpoints =  d[@"endpoints"];
+                if([d[@"name"]  isEqual: @"cloudFilesCDN"])
+                    cloudfilescdn_endpoints =  d[@"endpoints"];
+            }
+            
             self.authenticated = YES;
             
             if (successHandler) {
@@ -249,7 +355,7 @@
     NSString *path = @"?format=json";
     
     if (limit && marker) {
-        path = $S(@"?format=json&limit=%i&marker=%@", limit, marker);
+        path = $S(@"?format=json&limit=%lu&marker=%@", limit, marker);
     }
     
     if (limit) {
@@ -257,7 +363,7 @@
     }
     
     if (marker) {
-        path = $S(@"?format=json&limit=%i", limit);
+        path = $S(@"?format=json&limit=%lu", (unsigned long)limit);
     }
     
     return [self storageRequest:path];
@@ -368,7 +474,7 @@
     NSString *path = @"?format=json&enabled_only=true";
     
     if (limit && marker) {
-        path = $S(@"?format=json&enabled_only=true&limit=%i&marker=%@", limit, marker);
+        path = $S(@"?format=json&enabled_only=true&limit=%lu&marker=%@", (unsigned long)limit, marker);
     }
     
     if (limit) {
@@ -376,7 +482,7 @@
     }
     
     if (marker) {
-        path = $S(@"?format=json&enabled_only=true&limit=%i", limit);
+        path = $S(@"?format=json&enabled_only=true&limit=%lu", (unsigned long)limit);
     }
     
     return [self cdnRequest:path];
@@ -466,7 +572,7 @@
     
     NSMutableURLRequest *request = [self cdnRequest:$S(@"/%@", container.name) httpMethod:@"POST"];
     
-    [request addValue:$S(@"%i", container.ttl) forHTTPHeaderField:@"X-TTL"];
+    [request addValue:$S(@"%li", (long)container.ttl) forHTTPHeaderField:@"X-TTL"];
     [request addValue:container.cdn_enabled ? @"True": @"False" forHTTPHeaderField:@"X-CDN-Enabled"];
     [request addValue:container.log_retention ? @"True": @"False" forHTTPHeaderField:@"X-Log-Retention"];
     

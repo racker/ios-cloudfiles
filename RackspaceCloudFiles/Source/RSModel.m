@@ -32,19 +32,17 @@
     return self;
 }
 
-+ (NSArray *)arrayFromJSONDictionaries:(NSArray *)jsonDictionaries parent:(id)parent {
-
++(NSArray *)arrayFromJSONDictionaries:(NSArray *)jsonDictionaries parent:(id)parent {
+    
     NSMutableArray *array = [[NSMutableArray alloc] initWithCapacity:[jsonDictionaries count]];
     for (NSDictionary *dict in jsonDictionaries) {
         
         id object = [[[self class] alloc] initWithJSONDictionary:dict];
+        
         [object performSelector:@selector(setParent:) withObject:parent];        
         [array addObject:object];
-
     }
-    
     return [NSArray arrayWithArray:array];
-    
 }
 
 #pragma mark - HTTP
