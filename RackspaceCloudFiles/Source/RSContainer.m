@@ -33,7 +33,6 @@
     [request setHTTPMethod:@"GET"];
     [request addValue:self.client.authToken forHTTPHeaderField:@"X-Auth-Token"];
     [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-    NSLog(self.client.authToken);
     return request;
 }
 
@@ -45,50 +44,49 @@
    
     NSMutableString *paramString = [[NSMutableString alloc] initWithString:@"?format=json"];
     
-    for (NSString *key in params) {
-        
+    for (NSString *key in params)
         [paramString appendFormat:@"%@=%@", key, [params valueForKey:key]];
-        
-    }
     
+    NSURL *url = [NSURL URLWithString:$S(@"%@/%@%@", self.publicURL, self.name, paramString)];
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
+    [request setHTTPMethod:@"GET"];
+    [request addValue:self.client.authToken forHTTPHeaderField:@"X-Auth-Token"];
+    [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     
-    NSMutableURLRequest *request = [self.client storageRequest:$S(@"%@/%@", self.name, paramString)];
- 
     return request;
 }
 
 - (void)getObjects:(void (^)(NSArray *objects, NSError *jsonError))successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     [self.client sendAsynchronousRequest:@selector(getObjectsRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
-        
         NSError *jsonError = nil;
         NSArray* dictionaries = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:&jsonError];
         NSMutableArray* myarray = [[NSMutableArray alloc] init];
-        
-        
-        NSLog(@"getObjects happened %lu", [dictionaries count]);
         for(NSDictionary* d in dictionaries)
         {
             NSMutableDictionary* temp = [NSMutableDictionary dictionaryWithDictionary:d];
             [temp setValue:self.publicURL forKey:@"publicURL"];
+            [temp setValue:self.name forKey:@"parentContainerName"];
             NSDictionary* newelement = [NSDictionary dictionaryWithDictionary:temp];
             [myarray addObject:newelement];
         }
-
         if (successHandler) {
             successHandler([RSStorageObject arrayFromJSONDictionaries:myarray parent:self], jsonError);
         }
         
     } failureHandler:failureHandler];
-    
 }
 
 - (NSURLRequest *)uploadObjectRequest:(RSStorageObject *)object {
     
-    NSMutableURLRequest *request = [self.client storageRequest:$S(@"/%@/%@", self.name, object.name) httpMethod:@"PUT"];
-    
-    for (NSString *key in object.metadata) {
+    NSURL *url = [NSURL URLWithString:$S(@"%@/%@/%@", self.publicURL, self.name, object.name)];
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
+    [request setHTTPMethod:@"PUT"];
+    [request addValue:self.client.authToken forHTTPHeaderField:@"X-Auth-Token"];
+    [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+
+    for (NSString *key in object.metadata)
         [request addValue:[object.metadata valueForKey:key] forHTTPHeaderField:$S(@"X-Object-Meta-%@", key)];
-    }
+    
     [request addValue:$S(@"%lu", (unsigned long)[object.data length]) forHTTPHeaderField:@"Content-Length"];
     [request addValue:object.content_type forHTTPHeaderField:@"Content-Type"];
     [request setHTTPBody:object.data];
@@ -119,9 +117,13 @@
 }
 
 - (NSURLRequest *)deleteObjectRequest:(RSStorageObject *)object {
-
-    return [self.client storageRequest:$S(@"/%@/%@", self.name, object.name) httpMethod:@"DELETE"];
     
+    NSURL *url = [NSURL URLWithString:$S(@"%@/%@/%@", self.publicURL, self.name, object.name)];
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
+    [request setHTTPMethod:@"DELETE"];
+    [request addValue:self.client.authToken forHTTPHeaderField:@"X-Auth-Token"];
+    [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    return request;
 }
 
 - (void)deleteObject:(RSStorageObject *)object success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {

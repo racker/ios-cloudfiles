@@ -44,7 +44,8 @@
 /** MD5 checksum of the object's data.  Returned only when getting object data. */
 @property (nonatomic, strong) NSString *etag;
 
-@property (nonatomic, strong) NSURL* publicURL;
+@property (nonatomic, strong) NSString* publicURL;
+@property (nonatomic, strong) NSString* parentContainerName;
 
 /** The contents of the file */
 @property (nonatomic, strong) NSData *data;

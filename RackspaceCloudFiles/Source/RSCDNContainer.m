@@ -26,16 +26,23 @@
 
 - (NSURLRequest *)purgeCDNObjectRequest:(RSStorageObject *)object {
     
-    return [self.client cdnRequest:$S(@"/%@/%@", self.name, object.name) httpMethod:@"DELETE"];
-    
+    NSURL *url = [NSURL URLWithString:$S(@"%@/%@/%@", self.publicURL, self.name, object.name)];
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
+    [request setHTTPMethod:@"DELETE"];
+    [request addValue:self.client.authToken forHTTPHeaderField:@"X-Auth-Token"];
+    [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    return (NSURLRequest*)request;
 }
 
 - (NSURLRequest *)purgeCDNObjectRequest:(RSStorageObject *)object emailAddresses:(NSArray *)emailAddresses {
     
-    NSMutableURLRequest *request = [self.client cdnRequest:$S(@"/%@/%@", self.name, object.name) httpMethod:@"DELETE"];
+    NSURL *url = [NSURL URLWithString:$S(@"%@/%@/%@", self.publicURL, self.name, object.name)];
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
+    [request setHTTPMethod:@"DELETE"];
+    [request addValue:self.client.authToken forHTTPHeaderField:@"X-Auth-Token"];
+    [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     [request addValue:[emailAddresses componentsJoinedByString:@", "] forHTTPHeaderField:@"X-Purge-Email"];
-    return request;
-    
+    return (NSURLRequest*)request;
 }
 
 - (void)purgeCDNObject:(RSStorageObject *)object success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {

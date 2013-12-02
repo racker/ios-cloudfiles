@@ -14,7 +14,7 @@
 @implementation RSStorageObject
 
 @synthesize name, hash, bytes, content_type, last_modified, metadata, etag, data;
-@synthesize publicURL;
+@synthesize publicURL, parentContainerName;
 
 - (id)init {
     self = [super init];
@@ -32,16 +32,12 @@
 }
 
 - (NSURLRequest *)getObjectDataRequest {
-    NSURL *url = [NSURL URLWithString:$S(@"%@/%@?format=json", self.publicURL, self.name)];
+    NSURL *url = [NSURL URLWithString:$S(@"%@/%@/%@", self.publicURL, self.parentContainerName, self.name)];
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
     [request setHTTPMethod:@"GET"];
     [request addValue:self.client.authToken forHTTPHeaderField:@"X-Auth-Token"];
     [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-    NSLog(self.client.authToken);
-    
     return (NSURLRequest*)request;
-    
-//return [self.client storageRequest:$S(@"/%@/%@", [self.parent valueForKey:@"name"], self.name)];
 }
 
 - (void)getObjectData:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
@@ -74,9 +70,12 @@
 }
 
 - (NSURLRequest *)getObjectMetadataRequest {
-    
-    return [self.client storageRequest:$S(@"/%@/%@", [self.parent valueForKey:@"name"], self.name) httpMethod:@"HEAD"];
-
+    NSURL *url = [NSURL URLWithString:$S(@"%@/%@/%@", self.publicURL, self.parentContainerName, self.name)];
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
+    [request setHTTPMethod:@"GET"];
+    [request addValue:self.client.authToken forHTTPHeaderField:@"X-Auth-Token"];
+    [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    return (NSURLRequest*)request;
 }
 
 - (void)getMetadata:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
@@ -104,17 +103,16 @@
 }
 
 - (NSURLRequest *)updateMetadataRequest {
-
-    NSMutableURLRequest *request = [self.client storageRequest:$S(@"/%@/%@", [self.parent valueForKey:@"name"], self.name) httpMethod:@"POST"];
+    NSURL *url = [NSURL URLWithString:$S(@"%@/%@/%@", self.publicURL, self.parentContainerName, self.name)];
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
+    [request setHTTPMethod:@"POST"];
+    [request addValue:self.client.authToken forHTTPHeaderField:@"X-Auth-Token"];
+    [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     
-    for (NSString *key in self.metadata) {
-        
+    for (NSString *key in self.metadata)
         [request addValue:[self.metadata valueForKey:key] forHTTPHeaderField:$S(@"X-Object-Meta-%@", key)];
-        
-    }
     
     return request;
-    
 }
 
 - (void)updateMetadata:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
