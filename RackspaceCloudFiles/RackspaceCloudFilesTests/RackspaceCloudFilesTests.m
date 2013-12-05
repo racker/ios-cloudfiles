@@ -20,7 +20,7 @@
 	
 	NSTimeInterval startTime = [[NSDate date] timeIntervalSinceReferenceDate];
 	while (self.waiting) {		
-		[[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
+		[[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1]];
 		
 		// Don't let the download take longer than we're allowed
 		NSTimeInterval elapsedTime = [[NSDate date] timeIntervalSinceReferenceDate] - startTime;
@@ -46,7 +46,7 @@
     RSContainer *c = [[RSContainer alloc] init];
     c.name = @"RSCloudFilesSDK-Test";
     
-    [self.client createContainer:c success:^{
+    [self.client createContainer:c region:@"DFW" success:^{
         successHandler(c);
     } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         [self stopWaiting];
@@ -143,42 +143,16 @@
     
     self.client = [[RSClient alloc] initWithAuthURL:url username:username apiKey:apiKey];
     
-    [self createContainer:^(RSContainer *c) {
-        [self loadContainer:^{        
-            [self createObject:^(RSStorageObject *o) {
-                [self stopWaiting];
-                self.object = o;
-            }];
-        }];
-    }];
-    
-    [self waitForTestCompletion];
-    
 }
 
 - (void)tearDown {
-    
-    [self waitForTestCompletion];    
-    
-    [self deleteObject:^{
-        
-        [self deleteContainer:^{
-            
-            [self stopWaiting];
-            
-        }];
-        
-    }];
-    
-    [self waitForTestCompletion];    
+
     [super tearDown];
-    
 }
 
 #pragma mark - Tests
 
 - (void)testAuthentication {
-    
     [self.client authenticate:^{
         [self stopWaiting];
         STAssertNotNil(self.client.authToken, @"Client should have an auth token");
@@ -187,6 +161,7 @@
         STFail(@"Authentication failed.");
     }];
     
+    [self waitForTestCompletion];
 }
 
 - (void)testGetAccountMetadata {
@@ -201,16 +176,14 @@
 }
 
 - (void)testGetContainers {
+    void(^mycallback)(NSMutableArray*, NSArray*) = ^(NSMutableArray* errors, NSArray* containers)
+    {
+     [self stopWaiting];
+      STAssertFalse([containers count] == 0, @"At least one container should be found");
+      STAssertTrue([errors count] == 0, @"No errors in the errors array");
+    };
     
-    [self.client getContainers:^(NSArray *containers, NSError *jsonError) {
-        [self stopWaiting];
-        STAssertNotNil(containers, @"getContainers should return an array");
-        STAssertNil(jsonError, @"getContainers should not return a JSON error");
-    } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
-        [self stopWaiting];
-        STFail(@"Get Containers failed.");
-    }];
-    
+    [self.client getContainers_multiregion:mycallback];
 }
 
 - (void)testGetContainerMetadata {

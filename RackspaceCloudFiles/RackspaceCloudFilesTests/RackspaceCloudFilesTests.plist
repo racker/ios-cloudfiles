@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
 	<key>username</key>
-	<string>your-username</string>
+	<string>yourUsername</string>
 	<key>api_key</key>
-	<string>your-api-key</string>
+	<string>yourApikey</string>
 	<key>auth_url</key>
-	<string>https://auth.api.rackspacecloud.com/v1.0</string>
+	<string>https://identity.api.rackspacecloud.com/v2.0/tokens</string>
 </dict>
 </plist>

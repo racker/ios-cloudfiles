@@ -191,7 +191,7 @@ typedef enum {
  *  @param successHandler Executes if successful
  *  @param failureHandler Executes if not successful
  */
-- (void)createContainer:(RSContainer *)container success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler;
+- (void)createContainer:(RSContainer *)container region:(NSString*)region success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler;
 
 #pragma mark Delete Container
 
