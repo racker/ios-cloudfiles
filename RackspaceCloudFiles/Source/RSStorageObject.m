@@ -87,7 +87,6 @@
         self.content_type = [headers valueForKey:@"Content-Type"];
 
         for (NSString *key in headers) {
-            
             if ([key hasPrefix:@"X-Object-Meta-"]) {
                 [self.metadata setValue:[headers valueForKey:key] forKey:[key substringFromIndex:14]];
             }

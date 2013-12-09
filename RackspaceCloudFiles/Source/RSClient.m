@@ -46,6 +46,12 @@
 
 #pragma mark - Common
 
+- (NSError*) createNSError:(NSString*)errmsg {
+    NSMutableDictionary* d = [[NSMutableDictionary alloc] init];
+    [d setValue:errmsg forKey:NSLocalizedDescriptionKey];
+    return [NSError errorWithDomain:@"OhNoes" code:1 userInfo:d];
+}
+
 - (NSMutableURLRequest *)storageRequest:(NSString *)publicURL httpMethod:(NSString *)httpMethod {
     NSURL* url = [NSURL URLWithString:$S(@"%@", [publicURL stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding])];
     NSMutableURLRequest* request = [[NSMutableURLRequest alloc] initWithURL:url];
@@ -54,6 +60,8 @@
     [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     return request;
 }
+
+
 
 
 - (void)getContainers_multiregion:(void(^)(NSMutableArray*, NSArray*))callback {
@@ -143,7 +151,7 @@
 
 
 - (NSMutableURLRequest *)cdnRequest:(NSString *)path httpMethod:(NSString *)httpMethod {
-    NSURL *url = [NSURL URLWithString:$S(@"%@%@", self.cdnManagementURL, [path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding])];    
+    NSURL *url = [NSURL URLWithString:[path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
     [request setHTTPMethod:httpMethod];
     [request addValue:self.authToken forHTTPHeaderField:@"X-Auth-Token"];
@@ -305,11 +313,18 @@
 
 - (NSURLRequest *)getAccountMetadataRequest {
     
-    return [self storageRequest:@"" httpMethod:@"HEAD"];
-    
+    NSString* publicURL = [((NSDictionary*)[self.cloudfiles_endpoints objectAtIndex:0]) valueForKey:@"publicURL"];
+
+    return [self storageRequest:publicURL httpMethod:@"HEAD"];
 }
 
 - (void)getAccountMetadata:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
+    
+    if(![self.cloudfiles_endpoints count])
+    {
+        failureHandler(nil,nil,[self createNSError:@"No storage endpoints. Did you properly authenticate before calling this routine?"]);
+        return;
+    }
     
     [self sendAsynchronousRequest:@selector(getAccountMetadataRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
 
@@ -386,7 +401,7 @@
 }
 
 - (void)createContainer:(id)container region:(NSString*)region success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
-    NSString* endpoint = @"NOT_FOUND";
+    NSString* endpoint = nil;
    
     for(NSDictionary* ep in self.cloudfiles_endpoints)
         if([ep[@"region"] isEqualToString:region])
@@ -395,12 +410,23 @@
             break;
         }
     
+    if(!endpoint)
+    {
+        failureHandler(nil,nil,[self createNSError:$S(@"The region '%@' is not available on this account.",region)]);
+        return;
+    }
+    
     ((RSContainer*)container).publicURL = endpoint;
 
     [self sendAsynchronousRequest:@selector(createContainerRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
-        if (successHandler) {
-            successHandler();        
-        }
+        if(!error)
+            if (successHandler)
+            {
+                successHandler();
+                return;
+            }
+        failureHandler(response,data,error);
+
     } failureHandler:failureHandler];
     
 }
@@ -426,12 +452,29 @@
 #pragma mark - Get Container Metadata
 
 - (NSURLRequest *)getContainerMetadataRequest:(RSContainer *)container {
-    
-    return [self storageRequest:$S(@"/%@", [container valueForKey:@"name"]) httpMethod:@"HEAD"];
+
+    return [self storageRequest:$S(@"%@/%@", container.publicURL, container.name) httpMethod:@"HEAD"];
 
 }
 
-- (void)getContainerMetadata:(RSContainer *)container success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
+- (void)getContainerMetadata:(RSContainer *)container region:(NSString*)region success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
+    
+    NSString* endpoint = nil;
+    
+    for(NSDictionary* ep in self.cloudfiles_endpoints)
+        if([ep[@"region"] isEqualToString:region])
+        {
+            endpoint = ep[@"publicURL"];
+            break;
+        }
+    
+    if(!endpoint)
+    {
+        failureHandler(nil,nil,[self createNSError:$S(@"The region '%@' is not available on this account.",region)]);
+        return;
+    }
+    
+    container.publicURL = endpoint;
     
     [self sendAsynchronousRequest:@selector(getContainerMetadataRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         
@@ -533,11 +576,28 @@
 
 - (NSURLRequest *)cdnEnableContainerRequest:(RSContainer *)container {
 
-    return [self cdnRequest:$S(@"/%@", container.name) httpMethod:@"PUT"];
+    return [self cdnRequest:$S(@"%@/%@", container.publicURL, container.name) httpMethod:@"PUT"];
     
 }
 
-- (void)cdnEnableContainer:(RSContainer *)container success:(void (^)(RSCDNContainer *container))successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
+- (void)cdnEnableContainer:(RSContainer *)container region:(NSString*)region success:(void (^)(RSCDNContainer *container))successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
+    
+    NSString* endpoint = nil;
+    
+    for(NSDictionary* ep in self.cloudfiles_endpoints)
+        if([ep[@"region"] isEqualToString:region])
+        {
+            endpoint = ep[@"publicURL"];
+            break;
+        }
+    
+    if(!endpoint)
+    {
+        failureHandler(nil,nil,[self createNSError:$S(@"The region '%@' is not available on this account.",region)]);
+        return;
+    }
+    
+    container.publicURL = endpoint;
     
     [self sendAsynchronousRequest:@selector(cdnEnableContainerRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         
@@ -569,9 +629,7 @@
     [request addValue:$S(@"%li", (long)container.ttl) forHTTPHeaderField:@"X-TTL"];
     [request addValue:container.cdn_enabled ? @"True": @"False" forHTTPHeaderField:@"X-CDN-Enabled"];
     [request addValue:container.log_retention ? @"True": @"False" forHTTPHeaderField:@"X-Log-Retention"];
-    
     return request;
-    
 }
 
 - (void)updateCDNContainer:(RSCDNContainer *)container success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {

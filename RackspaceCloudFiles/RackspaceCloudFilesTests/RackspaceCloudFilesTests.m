@@ -16,7 +16,6 @@
 #pragma mark - Utilities
 
 - (void)waitForTestCompletion {
-    self.waiting = YES;
 	
 	NSTimeInterval startTime = [[NSDate date] timeIntervalSinceReferenceDate];
 	while (self.waiting) {		
@@ -37,43 +36,43 @@
 	}
 }
 
+- (void)resetWaiting {
+    self.waiting = YES;
+}
+
+
 - (void)stopWaiting {
     self.waiting = NO;
 }
 
-- (void)createContainer:(void (^)(RSContainer *))successHandler {
-    
+- (void)createContainer {
+    [self resetWaiting];
     RSContainer *c = [[RSContainer alloc] init];
     c.name = @"RSCloudFilesSDK-Test";
-    
-    [self.client createContainer:c region:@"DFW" success:^{
-        successHandler(c);
+    [self.client createContainer:c region:@"SYD" success:^{
+        [self stopWaiting];
     } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         [self stopWaiting];
-        STFail(@"Create container failed.");
-    }];    
+        STFail(@"createContainer failed.");
+    }];
+    [self waitForTestCompletion];
 }
 
-- (void)loadContainer:(void (^)())successHandler {
-    
-    [self.client getContainers:^(NSArray *containers, NSError *jsonError) {
-        
-        for (RSContainer *c in containers) {
-            
+- (void)loadContainer {
+    [self resetWaiting];
+    void(^mycallback)(NSMutableArray*, NSArray*) = ^(NSMutableArray* errors, NSArray* containers)
+    {
+        for (RSContainer *c in containers)
             if ([c.name isEqualToString:@"RSCloudFilesSDK-Test"]) {
                 self.container = c;
-                successHandler();
+                break;
             }
-            
-        }
-        
-        STAssertNotNil(self.container, @"Loading container failed.");
-        
-    } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+        if(!self.container)
+            [self createContainer];
         [self stopWaiting];
-        STFail(@"Load container failed.");
-    }];
-    
+    };
+    [self.client getContainers_multiregion:mycallback];
+    [self waitForTestCompletion];
 }
 
 - (void)deleteContainer:(void (^)())successHandler {
@@ -87,20 +86,22 @@
     }];    
 }
 
-- (void)createObject:(void (^)(RSStorageObject *))successHandler {
-    
+- (void)createObject {
     RSStorageObject *o = [[RSStorageObject alloc] init];
     o.name = @"test.txt";
     o.content_type = @"text/plain";    
     o.data = [@"This is a test." dataUsingEncoding:NSUTF8StringEncoding];
-    
+    [self resetWaiting];
     [self.container uploadObject:o success:^{
         self.object = o;
-        successHandler(o);
+        self.object.parentContainerName = self.container.name;
+        self.object.publicURL = self.container.publicURL;
+        [self stopWaiting];
     } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         [self stopWaiting];
         STFail(@"Create object failed.");
     }];
+    [self waitForTestCompletion];
     
 }
 
@@ -115,16 +116,6 @@
     
 }
 
-- (void)cdnEnableContainer:(void (^)(RSCDNContainer *))successHandler {
-    
-    [self.client cdnEnableContainer:self.container success:^(RSCDNContainer *cdnContainer) { 
-        successHandler(cdnContainer);
-    } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
-        [self stopWaiting];
-        STFail(@"CDN enable container failed.");
-    }];
-    
-}
 
 #pragma mark - Test Setup
 
@@ -140,9 +131,23 @@
     NSURL *url = [NSURL URLWithString:[settings valueForKey:@"auth_url"]];
     NSString *username = [settings valueForKey:@"username"];
     NSString *apiKey = [settings valueForKey:@"api_key"];
-    
-    self.client = [[RSClient alloc] initWithAuthURL:url username:username apiKey:apiKey];
-    
+    if(!self.client)
+    {
+        [self resetWaiting];
+        self.client = [[RSClient alloc] initWithAuthURL:url username:username apiKey:apiKey];
+        [self.client authenticate:^{
+            [self stopWaiting];
+            STAssertNotNil(self.client.authToken, @"Client should have an auth token");
+        } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+            [self stopWaiting];
+            STFail(@"Authentication failed.");
+        }];
+        [self waitForTestCompletion];
+        [self createContainer];
+        [self loadContainer];
+        [self createObject];
+    }
+    [self resetWaiting];
 }
 
 - (void)tearDown {
@@ -152,27 +157,29 @@
 
 #pragma mark - Tests
 
-- (void)testAuthentication {
-    [self.client authenticate:^{
+- (void)testCreateContainer {
+    RSContainer *c = [[RSContainer alloc] init];
+    c.name = @"RSCloudFilesSDK-Test";
+    [self.client createContainer:c region:@"SYD" success:^{
         [self stopWaiting];
-        STAssertNotNil(self.client.authToken, @"Client should have an auth token");
     } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         [self stopWaiting];
-        STFail(@"Authentication failed.");
+        STFail(@"Create container failed.");
     }];
-    
     [self waitForTestCompletion];
 }
 
+
 - (void)testGetAccountMetadata {
-    
     [self.client getAccountMetadata:^{
         [self stopWaiting];
+        STAssertTrue(self.client.containerCount > 0,@"At least 1 container" );
+        STAssertTrue(self.client.totalBytesUsed > 0,@"Some bytes are used." );
     } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         [self stopWaiting];
         STFail(@"Get Account Metadata failed.");
     }];
-    
+    [self waitForTestCompletion];
 }
 
 - (void)testGetContainers {
@@ -182,42 +189,49 @@
       STAssertFalse([containers count] == 0, @"At least one container should be found");
       STAssertTrue([errors count] == 0, @"No errors in the errors array");
     };
-    
     [self.client getContainers_multiregion:mycallback];
+    [self waitForTestCompletion];
+}
+
+- (void)testGetCDNContainers {
+    void(^mycallback)(NSMutableArray*, NSArray*) = ^(NSMutableArray* errors, NSArray* containers)
+    {
+        [self stopWaiting];
+        STAssertFalse([containers count] == 0, @"At least one container should be found");
+        STAssertTrue([errors count] == 0, @"No errors in the errors array");
+    };
+    [self.client getCDNContainers_multiregion:mycallback];
+    [self waitForTestCompletion];
 }
 
 - (void)testGetContainerMetadata {
-    
-    [self.client getContainerMetadata:self.container success:^{
+    RSContainer *c = [[RSContainer alloc] init];
+    c.name = @"RSCloudFilesSDK-Test";
+
+    [self.client getContainerMetadata:c region:@"SYD" success:^{
         [self stopWaiting];
     } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         [self stopWaiting];
         STFail(@"Get container metadata failed.");            
     }];
-    
+    [self waitForTestCompletion];
 }
 
-- (void)testUpdateCDNContainer {
+- (void)testEnableCDNforContainer {
+    RSContainer *c = [[RSContainer alloc] init];
+    c.name = @"RSCloudFilesSDK-Test";
     
-    [self cdnEnableContainer:^(RSCDNContainer *cdnContainer) {
-        
-        cdnContainer.ttl = 1000;
-        
-        [self.client updateCDNContainer:cdnContainer success:^{
-            
-            [self stopWaiting];
-            
-        } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
-            [self stopWaiting];
-            STFail(@"Update CDN container failed. Response code: %i - %@", [response statusCode], [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);  
-        }];
-        
+    [self.client cdnEnableContainer:c region:@"SYD" success:^(RSCDNContainer *cdnContainer) {
+       [self stopWaiting];
+    } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+        [self stopWaiting];
+        STFail(@"CDN enable container failed.");
     }];
-    
+   [self waitForTestCompletion];
 }
+
 
 - (void)testGetObjects {
-    
     [self.container getObjects:^(NSArray *objects, NSError *jsonError) {
         
         [self stopWaiting];
@@ -228,7 +242,7 @@
         [self stopWaiting];
         STFail(@"Get objects failed");
     }];
-    
+   [self waitForTestCompletion];
 }
 
 
@@ -237,44 +251,34 @@
     self.object.data = nil; // clear out the data to make sure we're getting it from the API
     
     [self.object getObjectData:^{
-        
         [self stopWaiting];
         STAssertNotNil(object.data, @"object data should not be nil");
-        
     } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
-        
         [self stopWaiting];
         STFail(@"get object data failed");
-        
     }];
-    
+   [self waitForTestCompletion];
 }
 
 - (void)testGetObjectMetadata {
-    
     self.object.metadata = [[NSMutableDictionary alloc] initWithCapacity:1];
     [self.object.metadata setValue:@"Mike" forKey:@"Name"];
     
     [self.object updateMetadata:^{
-        
         // let's clear it out, and then get it to make sure it comes back from the API                
         [self.object.metadata removeAllObjects];
-        
         [self.object getMetadata:^{
-            
             [self stopWaiting];
-            STAssertEqualObjects([self.object.metadata valueForKey:@"Name"], @"Mike", @"Object metadata should be set");            
-            
+            STAssertEqualObjects([self.object.metadata valueForKey:@"Name"], @"Mike", @"Object metadata should be set");
         } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
             [self stopWaiting];
             STFail(@"get object metadata failed");
         }];
-        
     } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         [self stopWaiting];
         STFail(@"update object metadata failed: %i", [response statusCode]);
     }];
-    
+   [self waitForTestCompletion];
 }
 
 - (void)testUpdateObjectMetadata {
@@ -287,16 +291,8 @@
         [self stopWaiting];
         STFail(@"update object metadata failed");
     }];
-    
+   [self waitForTestCompletion];
 }
 
-- (void)testCDNEnableContainer {
-    
-    [self cdnEnableContainer:^(RSCDNContainer *cdnContainer) { 
-        [self stopWaiting];
-        STAssertNotNil(cdnContainer, @"CDN container should not be nil.");
-    }];
-    
-}
 
 @end

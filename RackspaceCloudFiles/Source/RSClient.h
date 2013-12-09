@@ -64,8 +64,8 @@ typedef enum {
 
 /** Base URL string for the Cloud Files Storage API */
 @property (nonatomic, strong) NSString *storageURL;
-@property (nonatomic, strong) NSDictionary* cloudfiles_endpoints;
-@property (nonatomic, strong) NSDictionary* cloudfilescdn_endpoints;
+@property (nonatomic, strong) NSArray* cloudfiles_endpoints;
+@property (nonatomic, strong) NSArray* cloudfilescdn_endpoints;
 
 /** Base URL string for the Cloud Files CDN Management API */
 @property (nonatomic, strong) NSString *cdnManagementURL;
@@ -219,7 +219,7 @@ typedef enum {
  *  @param successHandler Executes if successful
  *  @param failureHandler Executes if not successful
  */
-- (void)getContainerMetadata:(RSContainer *)container success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler;
+- (void)getContainerMetadata:(RSContainer *)container region:(NSString*)region success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler;
 
 #pragma mark - CDN Services
 
@@ -235,7 +235,7 @@ typedef enum {
  *  @param successHandler Executes if successful
  *  @param failureHandler Executes if not successful
  */
-- (void)cdnEnableContainer:(RSContainer *)container success:(void (^)(RSCDNContainer *container))successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler;
+- (void)cdnEnableContainer:(RSContainer *)container region:(NSString*)region success:(void (^)(RSCDNContainer *container))successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler;
 
 #pragma mark Get CDN Containers
 

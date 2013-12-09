@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>username</key>
-	<string>yourUsername</string>
+	<string>username</string>
 	<key>api_key</key>
-	<string>yourApikey</string>
+	<string>apikey</string>
 	<key>auth_url</key>
 	<string>https://identity.api.rackspacecloud.com/v2.0/tokens</string>
 </dict>
