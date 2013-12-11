@@ -90,7 +90,6 @@
     [request addValue:$S(@"%lu", (unsigned long)[object.data length]) forHTTPHeaderField:@"Content-Length"];
     [request addValue:object.content_type forHTTPHeaderField:@"Content-Type"];
     [request setHTTPBody:object.data];
-        
     return request;
 }
 

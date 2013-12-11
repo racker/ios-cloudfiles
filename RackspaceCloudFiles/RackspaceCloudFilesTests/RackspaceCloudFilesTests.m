@@ -53,7 +53,7 @@
         [self stopWaiting];
     } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         [self stopWaiting];
-        STFail(@"createContainer failed.");
+        STFail(@"(setup)createContainer failed.");
     }];
     [self waitForTestCompletion];
 }
@@ -197,10 +197,10 @@
     void(^mycallback)(NSMutableArray*, NSArray*) = ^(NSMutableArray* errors, NSArray* containers)
     {
         [self stopWaiting];
-        STAssertFalse([containers count] == 0, @"At least one container should be found");
+        STAssertTrue([containers count] > 0, @"At least one container should be found");
         STAssertTrue([errors count] == 0, @"No errors in the errors array");
     };
-    [self.client getCDNContainers_multiregion:mycallback];
+    [self.client getCDNContainers_multiregion:mycallback];//---Note, in general you shouldn't use this.
     [self waitForTestCompletion];
 }
 

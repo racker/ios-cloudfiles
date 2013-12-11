@@ -72,7 +72,7 @@
 - (NSURLRequest *)getObjectMetadataRequest {
     NSURL *url = [NSURL URLWithString:$S(@"%@/%@/%@", self.publicURL, self.parentContainerName, self.name)];
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
-    [request setHTTPMethod:@"GET"];
+    [request setHTTPMethod:@"HEAD"];
     [request addValue:self.client.authToken forHTTPHeaderField:@"X-Auth-Token"];
     [request addValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     return (NSURLRequest*)request;
