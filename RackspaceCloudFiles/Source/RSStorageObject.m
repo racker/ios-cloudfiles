@@ -42,7 +42,7 @@
 
 - (void)getObjectData:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
-    [self.client sendAsynchronousRequest:@selector(getObjectDataRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *responseData, NSError *error) {
+    [self.client _sendAsynchronousRequest:@selector(getObjectDataRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *responseData, NSError *error) {
 
         self.etag = [[response allHeaderFields] valueForKey:@"ETag"];
         self.data = responseData;
@@ -56,7 +56,7 @@
 
 - (void)writeObjectDataToFile:(NSString *)path atomically:(BOOL)atomically success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
 
-    [self.client sendAsynchronousRequest:@selector(getObjectDataRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *responseData, NSError *error) {
+    [self.client _sendAsynchronousRequest:@selector(getObjectDataRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *responseData, NSError *error) {
 
         self.etag = [[response allHeaderFields] valueForKey:@"ETag"];
         [responseData writeToFile:path atomically:atomically];
@@ -80,7 +80,7 @@
 
 - (void)getMetadata:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
-    [self.client sendAsynchronousRequest:@selector(getObjectMetadataRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *responseData, NSError *error) {
+    [self.client _sendAsynchronousRequest:@selector(getObjectMetadataRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *responseData, NSError *error) {
         
         NSDictionary *headers = [response allHeaderFields];
         self.etag = [headers valueForKey:@"ETag"];
@@ -116,7 +116,7 @@
 
 - (void)updateMetadata:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
-    [self.client sendAsynchronousRequest:@selector(updateMetadataRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *responseData, NSError *error) {
+    [self.client _sendAsynchronousRequest:@selector(updateMetadataRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *responseData, NSError *error) {
         if (successHandler) {
             successHandler();
         }

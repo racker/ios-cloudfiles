@@ -13,15 +13,14 @@
 
 @implementation RSClient
 
-@synthesize username, apiKey, authURL, authenticated, authToken, storageURL, cdnManagementURL;
+@synthesize username, apiKey, authURL, authenticated, authToken;
 @synthesize containerCount, totalBytesUsed;
-@synthesize cloudfiles_endpoints, cloudfilescdn_endpoints;
+@synthesize cloudfiles_endpoints, cloudfilescdn_endpoints, getcontainerslimitquery;
 
 
 #pragma mark - Constructors
 
 - (id)initWithProvider:(RSProviderType)provider username:(NSString *)aUsername apiKey:(NSString *)anApiKey {
-    
     self = [super init];
     if (self) {
         self.authURL = [NSURL URLWithString:@"https://identity.api.rackspacecloud.com/v2.0/tokens"];
@@ -46,13 +45,13 @@
 
 #pragma mark - Common
 
-- (NSError*) createNSError:(NSString*)errmsg {
+- (NSError*) _createNSError:(NSString*)errmsg {
     NSMutableDictionary* d = [[NSMutableDictionary alloc] init];
     [d setValue:errmsg forKey:NSLocalizedDescriptionKey];
     return [NSError errorWithDomain:@"OhNoes" code:1 userInfo:d];
 }
 
-- (NSMutableURLRequest *)storageRequest:(NSString *)publicURL httpMethod:(NSString *)httpMethod {
+- (NSMutableURLRequest *) _storageRequest:(NSString *)publicURL httpMethod:(NSString *)httpMethod {
     NSURL* url = [NSURL URLWithString:$S(@"%@", [publicURL stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding])];
     NSMutableURLRequest* request = [[NSMutableURLRequest alloc] initWithURL:url];
     [request setHTTPMethod:httpMethod];
@@ -62,17 +61,22 @@
 }
 
 
-
-
 - (void)getContainers_multiregion:(void(^)(NSMutableArray*, NSArray*))callback {
     
     NSMutableArray* request_array = [[NSMutableArray alloc] init];
     __block NSMutableArray* containers = [[NSMutableArray alloc] init];
     __block NSMutableArray* errors = [[NSMutableArray alloc] init];
     
+    NSString* params;
+    
+    if(self.getcontainerslimitquery)
+        params = self.getcontainerslimitquery;
+    else
+        params = @"?format=json";
+    
     for(NSDictionary* endpoint in cloudfiles_endpoints)
         [request_array addObject:
-          [self storageRequest:[NSString stringWithFormat:@"%@/?format=json",[endpoint valueForKey:@"publicURL"]] httpMethod:@"GET"]
+          [self _storageRequest:[NSString stringWithFormat:@"%@/%@",[endpoint valueForKey:@"publicURL"], params] httpMethod:@"GET"]
          ];
 
     dispatch_queue_t workqueue = dispatch_queue_create("getContainers", NULL);
@@ -103,14 +107,22 @@
     });
 }
 
+// You probably don't want to use this because it returns CDN containers that have already been deleted. There actually is a good reason for this though...
 - (void)getCDNContainers_multiregion:(void(^)(NSMutableArray*, NSArray*))callback {
     NSMutableArray* request_array = [[NSMutableArray alloc] init];
     __block NSMutableArray* containers = [[NSMutableArray alloc] init];
     __block NSMutableArray* errors = [[NSMutableArray alloc] init];
     
+    NSString* params;
+    
+    if(self.getcontainerslimitquery)
+        params = self.getcontainerslimitquery;
+    else
+        params = @"?format=json";
+    
     for(NSDictionary* endpoint in cloudfilescdn_endpoints)
             [request_array addObject:
-             [self storageRequest:[NSString stringWithFormat:@"%@/?format=json",[endpoint valueForKey:@"publicURL"]] httpMethod:@"GET"]
+             [self _storageRequest:[NSString stringWithFormat:@"%@/%@",[endpoint valueForKey:@"publicURL"], params ] httpMethod:@"GET"]
              ];
     
     dispatch_queue_t workqueue = dispatch_queue_create("getContainers", NULL);
@@ -143,14 +155,7 @@
 }
 
 
-
-- (NSMutableURLRequest *)storageRequest:(NSString *)path {
-    
-    return [self storageRequest:path httpMethod:@"GET"];
-}
-
-
-- (NSMutableURLRequest *)cdnRequest:(NSString *)path httpMethod:(NSString *)httpMethod {
+- (NSMutableURLRequest *) _cdnRequest:(NSString *)path httpMethod:(NSString *)httpMethod {
     NSURL *url = [NSURL URLWithString:[path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
     [request setHTTPMethod:httpMethod];
@@ -159,13 +164,8 @@
     return request;
 }
 
-- (NSMutableURLRequest *)cdnRequest:(NSString *)path {
-    
-    return [self cdnRequest:path httpMethod:@"GET"];
-    
-}
 
-- (void)sendAsynchronousRequest:(SEL)requestSelector object:(id)object sender:(id)sender successHandler:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))successHandler failureHandler:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
+- (void)_sendAsynchronousRequest:(SEL)requestSelector object:(id)object sender:(id)sender successHandler:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))successHandler failureHandler:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
 
     // if the client hasn't been authenticated yet, this method will attempt to auth first,
     // then send the request.  if auth retry fails, the failureHandler is called
@@ -199,7 +199,7 @@
         
         [self authenticate:^{
 
-            [self sendAsynchronousRequest:requestSelector object:object sender:self successHandler:successHandler failureHandler:failureHandler];
+            [self _sendAsynchronousRequest:requestSelector object:object sender:self successHandler:successHandler failureHandler:failureHandler];
             
         } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
             
@@ -213,15 +213,15 @@
     
 }
 
-- (void)sendAsynchronousRequest:(SEL)requestSelector sender:(id)sender successHandler:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))successHandler failureHandler:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
+- (void)_sendAsynchronousRequest:(SEL)requestSelector sender:(id)sender successHandler:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))successHandler failureHandler:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
-    [self sendAsynchronousRequest:requestSelector object:nil sender:sender successHandler:successHandler failureHandler:failureHandler];
+    [self _sendAsynchronousRequest:requestSelector object:nil sender:sender successHandler:successHandler failureHandler:failureHandler];
     
 }
 
 #pragma mark - Authentication
 
-- (NSURLRequest *)authenticationRequest {
+- (NSURLRequest *) _authenticationRequest {
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:self.authURL];
 
     NSString* postdata =  [NSString stringWithFormat:
@@ -239,7 +239,7 @@
 
 - (void)authenticate:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
-    NSURLRequest *request = [self authenticationRequest];
+    NSURLRequest *request = [self _authenticationRequest];
     
     [NSURLConnection sendAsynchronousRequest:request queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse *urlResponse, NSData *data, NSError *error) {    
         
@@ -311,22 +311,22 @@
 
 #pragma mark - Get Account Metadata
 
-- (NSURLRequest *)getAccountMetadataRequest {
+- (NSURLRequest *)_getAccountMetadataRequest {
     
     NSString* publicURL = [((NSDictionary*)[self.cloudfiles_endpoints objectAtIndex:0]) valueForKey:@"publicURL"];
 
-    return [self storageRequest:publicURL httpMethod:@"HEAD"];
+    return [self _storageRequest:publicURL httpMethod:@"HEAD"];
 }
 
 - (void)getAccountMetadata:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
     if(![self.cloudfiles_endpoints count])
     {
-        failureHandler(nil,nil,[self createNSError:@"No storage endpoints. Did you properly authenticate before calling this routine?"]);
+        failureHandler(nil,nil,[self _createNSError:@"No storage endpoints. Did you properly authenticate before calling this routine?"]);
         return;
     }
     
-    [self sendAsynchronousRequest:@selector(getAccountMetadataRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+    [self _sendAsynchronousRequest:@selector(_getAccountMetadataRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
 
         NSDictionary *headers = [response allHeaderFields];
         
@@ -346,35 +346,28 @@
 
 #pragma mark - Get Containers
 
-- (NSURLRequest *)getContainersRequest {
-    
-    return [self storageRequest:@"?format=json"];
-    
-}
 
-- (NSURLRequest *)getContainersRequestWithLimit:(NSUInteger)limit marker:(NSString *)marker {
-    
-    NSString *path = @"?format=json";
+- (void)setContainersRequestWithLimit:(NSUInteger)limit marker:(NSString *)marker {
     
     if (limit && marker) {
-        path = $S(@"?format=json&limit=%lu&marker=%@", (unsigned long)limit, marker);
+        self.getcontainerslimitquery = $S(@"?format=json&limit=%lu&marker=%@", (unsigned long)limit, marker);
     }
-    
+    else
     if (limit) {
-        path = $S(@"?format=json&marker=%@", [marker stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]);
+        self.getcontainerslimitquery = $S(@"?format=json&marker=%@", [marker stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]);
     }
-    
+    else
     if (marker) {
-        path = $S(@"?format=json&limit=%lu", (unsigned long)limit);
+        self.getcontainerslimitquery = $S(@"?format=json&limit=%lu", (unsigned long)limit);
     }
-    
-    return [self storageRequest:path];
-    
+    else
+        self.getcontainerslimitquery = nil;
 }
+
 
 - (void)getContainers:(void (^)(NSArray *containers, NSError *jsonError))successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
-    [self sendAsynchronousRequest:@selector(getContainersRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+    [self _sendAsynchronousRequest:@selector(_getContainersRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         
         NSError *jsonError = nil;
         NSArray *containerDictionaries = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:&jsonError];
@@ -389,9 +382,9 @@
 
 #pragma mark - Create Container
 
-- (NSURLRequest *)createContainerRequest:(RSContainer *)container {
+- (NSURLRequest *)_createContainerRequest:(RSContainer *)container {
     
-    NSMutableURLRequest *request = [self storageRequest:$S(@"%@/%@", container.publicURL, container.name) httpMethod:@"PUT"];
+    NSMutableURLRequest *request = [self _storageRequest:$S(@"%@/%@", container.publicURL, container.name) httpMethod:@"PUT"];
     
     if ([container.metadata count] > 0)
         for (NSString *key in container.metadata)
@@ -412,13 +405,13 @@
     
     if(!endpoint)
     {
-        failureHandler(nil,nil,[self createNSError:$S(@"The region '%@' is not available on this account.",region)]);
+        failureHandler(nil,nil,[self _createNSError:$S(@"The region '%@' is not available on this account.",region)]);
         return;
     }
     
     ((RSContainer*)container).publicURL = endpoint;
 
-    [self sendAsynchronousRequest:@selector(createContainerRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+    [self _sendAsynchronousRequest:@selector(_createContainerRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         if(!error)
             if (successHandler)
             {
@@ -433,15 +426,15 @@
 
 #pragma mark - Delete Container
 
-- (NSURLRequest *)deleteContainerRequest:(RSContainer*)container endpoint:(NSString *)endpoint {
+- (NSURLRequest *)_deleteContainerRequest:(RSContainer*)container  {
     
-    return [self storageRequest:$S(@"/%@/%@", endpoint, container.name) httpMethod:@"DELETE"];
+    return [self _storageRequest:$S(@"%@/%@", container.publicURL, container.name) httpMethod:@"DELETE"];
 
 }
 
-- (void)deleteContainer:(id)container region:(NSString*)region success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
+- (void)deleteContainer:(id)container success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
-    [self sendAsynchronousRequest:@selector(deleteContainerRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {        
+    [self _sendAsynchronousRequest:@selector(_deleteContainerRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         if (successHandler) {
             successHandler();        
         }
@@ -451,9 +444,9 @@
 
 #pragma mark - Get Container Metadata
 
-- (NSURLRequest *)getContainerMetadataRequest:(RSContainer *)container {
+- (NSURLRequest *)_getContainerMetadataRequest:(RSContainer *)container {
 
-    return [self storageRequest:$S(@"%@/%@", container.publicURL, container.name) httpMethod:@"HEAD"];
+    return [self _storageRequest:$S(@"%@/%@", container.publicURL, container.name) httpMethod:@"HEAD"];
 
 }
 
@@ -470,25 +463,20 @@
     
     if(!endpoint)
     {
-        failureHandler(nil,nil,[self createNSError:$S(@"The region '%@' is not available on this account.",region)]);
+        failureHandler(nil,nil,[self _createNSError:$S(@"The region '%@' is not available on this account.",region)]);
         return;
     }
     
     container.publicURL = endpoint;
     
-    [self sendAsynchronousRequest:@selector(getContainerMetadataRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+    [self _sendAsynchronousRequest:@selector(_getContainerMetadataRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         
         NSDictionary *headers = [response allHeaderFields];
         
-        for (NSString *key in headers) {
-            
-            if ([key hasPrefix:@"X-Container-Meta-"]) {
-                
+        for (NSString *key in headers)
+            if ([key hasPrefix:@"X-Container-Meta-"])
                 [container.metadata setValue:[headers valueForKey:key] forKey:[key substringFromIndex:17]];
-                
-            }
-        }
-
+        
         if (successHandler) {
             successHandler();        
         }
@@ -498,71 +486,40 @@
 
 #pragma mark - Get CDN Containers
 
-- (NSURLRequest *)getCDNContainersRequest {
-    
-    return [self cdnRequest:@"?format=json"];
-    
-}
-
-- (NSURLRequest *)getCDNContainersRequestWithLimit:(NSUInteger)limit marker:(NSString *)marker {
-
-    // TODO: DRY this up
-    
-    NSString *path = @"?format=json&enabled_only=true";
-    
+- (void)setCDNContainersRequestWithLimit:(NSUInteger)limit marker:(NSString *)marker {
     if (limit && marker) {
-        path = $S(@"?format=json&enabled_only=true&limit=%lu&marker=%@", (unsigned long)limit, marker);
+        self.getcontainerslimitquery = $S(@"?format=json&enabled_only=true&limit=%lu&marker=%@", (unsigned long)limit, marker);
     }
-    
+    else
     if (limit) {
-        path = $S(@"?format=json&enabled_only=true&marker=%@", [marker stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]);
+        self.getcontainerslimitquery = $S(@"?format=json&enabled_only=true&marker=%@", [marker stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]);
     }
-    
+    else
     if (marker) {
-        path = $S(@"?format=json&enabled_only=true&limit=%lu", (unsigned long)limit);
+        self.getcontainerslimitquery = $S(@"?format=json&enabled_only=true&limit=%lu", (unsigned long)limit);
     }
-    
-    return [self cdnRequest:path];
-    
+    else
+        self.getcontainerslimitquery = nil;
 }
 
-- (void)getCDNContainers:(void (^)(NSArray *containers, NSError *jsonError))successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
-    
-    [self sendAsynchronousRequest:@selector(getCDNContainersRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
-        
-        NSError *jsonError = nil;
-        NSArray *containerDictionaries = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:&jsonError];
-        
-        if (successHandler) {
-            successHandler([RSCDNContainer arrayFromJSONDictionaries:containerDictionaries parent:self], jsonError);
-        }
-        
-    } failureHandler:failureHandler];
-    
-}
 
 #pragma mark - Get Container Metadata
 
-- (NSURLRequest *)getCDNContainerMetadataRequest:(RSCDNContainer *)container {
+- (NSURLRequest *)_getCDNContainerMetadataRequest:(RSCDNContainer *)container {
     
-    return [self storageRequest:$S(@"/%@", [container valueForKey:@"name"]) httpMethod:@"HEAD"];
+    return [self _storageRequest:$S(@"%@/%@", container.publicURL, container.name) httpMethod:@"HEAD"];
     
 }
 
 - (void)getCDNContainerMetadata:(RSCDNContainer *)container success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
-    [self sendAsynchronousRequest:@selector(getCDNContainerMetadataRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+    [self _sendAsynchronousRequest:@selector(_getCDNContainerMetadataRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         
         NSDictionary *headers = [response allHeaderFields];
         
-        for (NSString *key in headers) {
-            
-            if ([key hasPrefix:@"X-Container-Meta-"]) {
-                
+        for (NSString *key in headers)
+            if ([key hasPrefix:@"X-Container-Meta-"])
                 [container.metadata setValue:[headers valueForKey:key] forKey:[key substringFromIndex:17]];
-                
-            }
-        }
         
         if (successHandler) {
             successHandler();        
@@ -574,9 +531,9 @@
 
 #pragma mark CDN Enable Container
 
-- (NSURLRequest *)cdnEnableContainerRequest:(RSContainer *)container {
+- (NSURLRequest *)_cdnEnableContainerRequest:(RSContainer *)container {
 
-    return [self cdnRequest:$S(@"%@/%@", container.publicURL, container.name) httpMethod:@"PUT"];
+    return [self _cdnRequest:$S(@"%@/%@", container.publicURL, container.name) httpMethod:@"PUT"];
     
 }
 
@@ -584,22 +541,24 @@
     
     NSString* endpoint = nil;
     
-    for(NSDictionary* ep in self.cloudfiles_endpoints)
-        if([ep[@"region"] isEqualToString:region])
-        {
-            endpoint = ep[@"publicURL"];
-            break;
-        }
+    if(!container.publicURL)
+        for(NSDictionary* ep in self.cloudfiles_endpoints)
+            if([ep[@"region"] isEqualToString:region])
+            {
+                endpoint = ep[@"publicURL"];
+                break;
+            }
     
-    if(!endpoint)
+    if(!endpoint && !container.publicURL)
     {
-        failureHandler(nil,nil,[self createNSError:$S(@"The region '%@' is not available on this account.",region)]);
+        failureHandler(nil,nil,[self _createNSError:$S(@"The region '%@' is not available on this account.",region)]);
         return;
     }
     
-    container.publicURL = endpoint;
+    if(endpoint)
+        container.publicURL = endpoint;
     
-    [self sendAsynchronousRequest:@selector(cdnEnableContainerRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+    [self _sendAsynchronousRequest:@selector(_cdnEnableContainerRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         
         NSDictionary *headers = [response allHeaderFields];
 
@@ -622,9 +581,9 @@
 
 #pragma mark Update CDN Container (5.2.4)
 
-- (NSURLRequest *)updateCDNContainerRequest:(RSCDNContainer *)container {
+- (NSURLRequest *)_updateCDNContainerRequest:(RSCDNContainer *)container {
     
-    NSMutableURLRequest *request = [self cdnRequest:$S(@"/%@", container.name) httpMethod:@"POST"];
+    NSMutableURLRequest *request = [self _storageRequest:$S(@"%@/%@", container.publicURL, container.name) httpMethod:@"POST"];
     
     [request addValue:$S(@"%li", (long)container.ttl) forHTTPHeaderField:@"X-TTL"];
     [request addValue:container.cdn_enabled ? @"True": @"False" forHTTPHeaderField:@"X-CDN-Enabled"];
@@ -634,7 +593,7 @@
 
 - (void)updateCDNContainer:(RSCDNContainer *)container success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
-    [self sendAsynchronousRequest:@selector(cdnEnableContainerRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+    [self _sendAsynchronousRequest:@selector(_cdnEnableContainerRequest:) object:container sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         if (successHandler) {
             successHandler();        
         }

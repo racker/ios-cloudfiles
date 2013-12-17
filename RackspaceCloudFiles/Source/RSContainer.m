@@ -57,7 +57,7 @@
 }
 
 - (void)getObjects:(void (^)(NSArray *objects, NSError *jsonError))successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
-    [self.client sendAsynchronousRequest:@selector(getObjectsRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+    [self.client _sendAsynchronousRequest:@selector(getObjectsRequest) sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         NSError *jsonError = nil;
         NSArray* dictionaries = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:&jsonError];
         NSMutableArray* myarray = [[NSMutableArray alloc] init];
@@ -95,7 +95,7 @@
 
 - (void)uploadObject:(RSStorageObject *)object success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
-    [self.client sendAsynchronousRequest:@selector(uploadObjectRequest:) object:object sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+    [self.client _sendAsynchronousRequest:@selector(uploadObjectRequest:) object:object sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         
         object.etag = [[response allHeaderFields] valueForKey:@"ETag"];        
         object.parent = self;
@@ -127,7 +127,7 @@
 
 - (void)deleteObject:(RSStorageObject *)object success:(void (^)())successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler {
     
-    [self.client sendAsynchronousRequest:@selector(deleteObjectRequest:) object:object sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {        
+    [self.client _sendAsynchronousRequest:@selector(deleteObjectRequest:) object:object sender:self successHandler:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         if (successHandler) {
             successHandler();        
         }

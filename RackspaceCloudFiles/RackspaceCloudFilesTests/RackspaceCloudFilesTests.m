@@ -75,16 +75,6 @@
     [self waitForTestCompletion];
 }
 
-- (void)deleteContainer:(void (^)())successHandler {
-    
-    [self.client deleteContainer:self.container success:^{
-        [self stopWaiting];
-        successHandler();
-    } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {        
-        [self stopWaiting];
-        STFail(@"delete container failed");
-    }];    
-}
 
 - (void)createObject {
     RSStorageObject *o = [[RSStorageObject alloc] init];
@@ -294,5 +284,34 @@
    [self waitForTestCompletion];
 }
 
+-(void)testUpdateCDNContainer {
+    
+    [self.client updateCDNContainer:(RSCDNContainer*)self.container success:^{
+        [self stopWaiting];
+    } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+        [self stopWaiting];
+        STFail(@"Update CDN container failed.");
+    }];
+    [self waitForTestCompletion];
+}
+
+- (void)testZDelete_Object_and_Container {// "Z" because I need this test to run last.
+    [self.container deleteObject:self.object success:^{
+        [self stopWaiting];
+    } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+        [self stopWaiting];
+        STFail(@"Delete object failed.");
+    }];
+    
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:5]];
+    
+    [self.client deleteContainer:self.container success:^{
+        [self stopWaiting];
+    } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
+        [self stopWaiting];
+        STFail(@"Delete container failed.");
+    }];
+    [self waitForTestCompletion];
+}
 
 @end
