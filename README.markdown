@@ -64,83 +64,9 @@ Once you have created your object, you can optionally authenticate before perfor
   // authentication failed.  you can inspect the response, data, and error
   // objects to determine why.
 
-}];
-```
 
-#### RSContainer
 
-With RSClient, you can retrieve a NSArray of all of your Cloud Files containers as RSContainer objects.  With a RSContainer object, you can retrieve a list of all files in that container.  You can also upload files and delete files.  Files are referred to as objects.
-
-```Objective-C
-[container getObjects:^(NSArray *objects, NSError *jsonError) {
-    
-    // retrieving objects was successful
-    
-} failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
-
-    // retrieving objects failed.  you can inspect the response, data,
-    // and error objects to determine why.
-
-}];
-```
-
-#### RSCDNContainer
-
-RSCDNContainer represents containers that are CDN-enabled and available to the public.  You can use this class to change your CDN settings and purge objects that you no longer want to be available on the CDN.
-
-```Objective-C
-[cdnContainer purgeCDNObject:object success:^{
-    
-    // object purge was successful
-    
-} failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
-    
-    NSDictionary *headers = [response allHeaderFields];
-    
-    // you can only purge once every 3600 seconds, so if you get a
-    // X-Purge-Failed-Reason header, that's an acceptable failure
-    if (![headers valueForKey:@"X-Purge-Failed-Reason"]) {
-        
-        // object purge failed for a reason
-        
-    }
-    
-}];
-```
-
-#### RSStorageObject
-
-RSStorageObject represents an object in the Cloud Files system.  An object is a file and any associated metadata.  With this class, you can upload and download file contents, as well as retrieve and update metadata.
-
-```Objective-C
-[object getObjectData:^{
-    
-    // object.data now contains the file contents
-    
-} failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
-    
-    // retrieving object data failed.  you can inspect the response, data,
-    // and error objects to determine why.
-    
-}];
-```
-
-## Running the Tests
-
-To run the tests, open the RackspaceCloudFiles project in Xcode, and then open the RackspaceCloudFilesTests.plist file in the RackspaceCloudFilesTests group.  Here you can fill in your username and API key.  If you are a UK user, you will also need to change the auth_url to https://lon.auth.rackspacecloud.com/v1.0
-
-Your API key is available in the My Account section of http://manage.rackspacecloud.com, and http://lon.manage.rackspacecloud.com for UK users.
-
-When you are ready to run the tests, press Command+U, or hold the mouse down over the Run button on the top left corner of the Xcode window and press Test when the popup appears.  Test output will appear in the Xcode console.
-
-## Support and Contribution
-
-The Rackspace Cloud Files SDK is available for free and is open source at http://github.com/rackspace/ios-cloudfiles
-
-The Rackspace Cloud Files SDK is provided under the Apache 2.0 license.  For full text of the license, visit http://www.apache.org/licenses/LICENSE-2.0
-
-Contribution is welcome and encouraged!  We welcome both code contributions and bug reports in Github Issues.  If you contribute code, be sure that your code is tested and that all tests pass.
-
-Feel free to contact Mike Mayo at mike.mayo@rackspace.com if you have any trouble using the library.
-
+Formal documentation on how to use is coming soon, but for now look at the
+unit tests. They are the best code samples right now; also don't call any
+functions directly that start with an underscore - a convention from the original days of C/C++ and MFC usage Windows. Those functions are subject to change as needed and without notice. 
 
