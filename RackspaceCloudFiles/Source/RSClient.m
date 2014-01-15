@@ -61,7 +61,7 @@
 }
 
 
-- (void)getContainers_multiregion:(void(^)(NSMutableArray*, NSArray*))callback {
+- (void)getContainersForAllRegions:(void(^)(NSMutableArray*, NSArray*))callback {
     
     NSMutableArray* request_array = [[NSMutableArray alloc] init];
     __block NSMutableArray* containers = [[NSMutableArray alloc] init];
@@ -108,7 +108,7 @@
 }
 
 // You probably don't want to use this because it returns CDN containers that have already been deleted. There actually is a good reason for this though...
-- (void)getCDNContainers_multiregion:(void(^)(NSMutableArray*, NSArray*))callback {
+- (void)getCDNContainersForAllRegions:(void(^)(NSMutableArray*, NSArray*))callback {
     NSMutableArray* request_array = [[NSMutableArray alloc] init];
     __block NSMutableArray* containers = [[NSMutableArray alloc] init];
     __block NSMutableArray* errors = [[NSMutableArray alloc] init];

@@ -14,9 +14,6 @@
 
 @implementation RSContainer
 
-@synthesize bytes, count, name, metadata;
-@synthesize publicURL;
-
 - (id)init {
     self = [super init];
     if (self) {
@@ -24,6 +21,7 @@
     }
     return self;
 }
+
 
 #pragma mark - Get Objects
 

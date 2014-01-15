@@ -160,10 +160,10 @@ typedef enum {
  *  @param successHandler Executes if successful
  *  @param failureHandler Executes if not successful
  */
-- (void)getContainers:(void (^)(NSArray *containers, NSError *jsonError))successHandler failure:(void (^)(NSHTTPURLResponse*, NSData*, NSError*))failureHandler;
 
-- (void)getContainers_multiregion:(void(^)(NSMutableArray*, NSArray*))callback;
-- (void)getCDNContainers_multiregion:(void(^)(NSMutableArray*, NSArray*))callback;
+
+- (void)getContainersForAllRegions:(void(^)(NSMutableArray*, NSArray*))callback;
+- (void)getCDNContainersForAllRegions:(void(^)(NSMutableArray*, NSArray*))callback;
 
 
 #pragma mark Create Container

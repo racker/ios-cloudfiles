@@ -11,20 +11,18 @@
 
 @implementation RackspaceCloudFilesTests
 
-@synthesize client, container, object, waiting, timeoutFailureString;
+//@synthesize client, container, object, waiting, timeoutFailureString;
 
 #pragma mark - Utilities
 
 - (void)waitForTestCompletion {
-	
 	NSTimeInterval startTime = [[NSDate date] timeIntervalSinceReferenceDate];
 	while (self.waiting) {		
 		[[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1]];
-		
 		// Don't let the download take longer than we're allowed
 		NSTimeInterval elapsedTime = [[NSDate date] timeIntervalSinceReferenceDate] - startTime;
 		if (elapsedTime > (30.0)) {
-			NSString* failContext = timeoutFailureString;
+			NSString* failContext = [self timeoutFailureString];
 			if (failContext == nil) {
 				failContext = @"Timed out trying to perform test.";
 			}
@@ -71,7 +69,7 @@
             [self createContainer];
         [self stopWaiting];
     };
-    [self.client getContainers_multiregion:mycallback];
+    [self.client getContainersForAllRegions:mycallback];
     [self waitForTestCompletion];
 }
 
@@ -179,7 +177,7 @@
       STAssertFalse([containers count] == 0, @"At least one container should be found");
       STAssertTrue([errors count] == 0, @"No errors in the errors array");
     };
-    [self.client getContainers_multiregion:mycallback];
+    [self.client getContainersForAllRegions:mycallback];
     [self waitForTestCompletion];
 }
 
@@ -190,7 +188,7 @@
         STAssertTrue([containers count] > 0, @"At least one container should be found");
         STAssertTrue([errors count] == 0, @"No errors in the errors array");
     };
-    [self.client getCDNContainers_multiregion:mycallback];//---Note, in general you shouldn't use this.
+    [self.client getCDNContainersForAllRegions:mycallback];//---Note, in general you shouldn't use this.
     [self waitForTestCompletion];
 }
 
@@ -242,7 +240,7 @@
     
     [self.object getObjectData:^{
         [self stopWaiting];
-        STAssertNotNil(object.data, @"object data should not be nil");
+        STAssertNotNil(self.object.data, @"object data should not be nil");
     } failure:^(NSHTTPURLResponse *response, NSData *data, NSError *error) {
         [self stopWaiting];
         STFail(@"get object data failed");
