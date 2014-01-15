@@ -63,6 +63,8 @@ Once you have created your object, you can optionally authenticate before perfor
 
   // authentication failed.  you can inspect the response, data, and error
   // objects to determine why.
+}];
+```
 
 
 
